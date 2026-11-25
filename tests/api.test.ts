@@ -19,7 +19,15 @@ test(
     ];
     let aiRequest: any;
     const upstream = createServer((req, res) => {
-      if (req.url === "/v1/chat/completions") {
+      if (req.url?.startsWith("/failure/")) {
+        res.writeHead(Number(req.url.split("/").at(-1)), {
+          "content-type": "text/plain",
+        });
+        res.end("upstream rejected the request".repeat(100));
+      } else if (req.url === "/redirect") {
+        res.writeHead(302, { location: "/subscription" });
+        res.end("redirect response body".repeat(100));
+      } else if (req.url === "/v1/chat/completions") {
         let body = "";
         req.on("data", (chunk) => (body += chunk));
         req.on("end", () => {
@@ -136,12 +144,35 @@ test(
       let project = (await call("/api/projects", "POST", { name: "验收项目" }))
         .data;
       assert.ok(project.id);
+      for (const status of [403, 429, 500]) {
+        const rejected = await call(
+          `/api/projects/${project.id}/import`,
+          "POST",
+          {
+            name: "失败来源",
+            url: `http://127.0.0.1:${upstreamPort}/failure/${status}`,
+            revision: project.revision,
+          },
+        );
+        assert.equal(rejected.status, 400, JSON.stringify(rejected.data));
+        assert.match(rejected.data.error, new RegExp(`HTTP ${status}`));
+        assert.equal((await call("/api/health")).status, 200);
+      }
+      const loginAfterErrors = await call("/api/auth/login", "POST", {
+        email: "admin@example.test",
+        password: "test-password-123",
+      });
+      assert.equal(
+        loginAfterErrors.status,
+        200,
+        JSON.stringify(loginAfterErrors.data),
+      );
       const imported = await call(
         `/api/projects/${project.id}/import`,
         "POST",
         {
           name: "测试来源",
-          url: `http://127.0.0.1:${upstreamPort}/subscription`,
+          url: `http://127.0.0.1:${upstreamPort}/redirect`,
           revision: project.revision,
         },
       );

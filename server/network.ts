@@ -54,7 +54,8 @@ async function resolveRealAddresses(
             signal: AbortSignal.timeout(5000),
           });
           if (response.statusCode !== 200) {
-            response.body.destroy();
+            // Cancelling an unread Undici body emits an asynchronous AbortError.
+            response.body.on("error", () => {}).destroy();
             throw new Error("DNS response failed");
           }
           const text = await response.body.text();
@@ -169,7 +170,7 @@ export async function safeFetch(
       signal: AbortSignal.timeout(45_000),
     });
     if (response.statusCode >= 300 && response.statusCode < 400) {
-      response.body.destroy();
+      response.body.on("error", () => {}).destroy();
       if (
         redirects >= 3 ||
         !response.headers.location ||
@@ -195,7 +196,7 @@ export async function safeFetch(
       );
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      response.body.destroy();
+      response.body.on("error", () => {}).destroy();
       throw new HttpError(400, `远程服务返回 HTTP ${response.statusCode}`);
     }
     const chunks: Buffer[] = [];
@@ -204,7 +205,7 @@ export async function safeFetch(
       const buffer = Buffer.from(chunk);
       size += buffer.length;
       if (size > (options.maxBytes || 5 * 1024 * 1024)) {
-        response.body.destroy();
+        response.body.on("error", () => {}).destroy();
         throw new HttpError(400, "远程内容超过大小限制");
       }
       chunks.push(buffer);
