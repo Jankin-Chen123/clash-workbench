@@ -841,6 +841,101 @@ details p {
   overflow-y: auto;
   scrollbar-width: thin;
 }
+.node-country {
+  margin-bottom: 12px;
+}
+.country-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 8px;
+  color: #58735f;
+  font-size: 13px;
+  font-weight: 600;
+}
+.country-heading small {
+  color: #8c9b8e;
+  font-size: 12px;
+  font-weight: 400;
+}
+.group-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.group-filters > .search {
+  flex: 1 1 220px;
+  max-width: 360px;
+}
+.group-filter-count {
+  color: var(--muted);
+  font-size: 12px;
+}
+.group-filter-picker {
+  position: relative;
+  margin: 0;
+  color: var(--green);
+}
+.group-filter-picker > summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: white;
+  list-style: none;
+  font-size: 13px;
+}
+.group-filter-picker > summary::-webkit-details-marker {
+  display: none;
+}
+.group-filter-picker > summary > span {
+  background: #eaf3ed;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12px;
+}
+.group-filter-menu {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 5;
+  width: 260px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 8px 30px #163d351a;
+}
+.group-filter-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.group-filter-actions button {
+  padding: 5px;
+  font-size: 13px;
+}
+.group-filter-options {
+  max-height: 260px;
+  overflow-y: auto;
+  padding-top: 8px;
+}
+.group-filter-options label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 4px;
+  color: #415347;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
 .node-row {
   display: flex;
   gap: 8px;
@@ -2035,12 +2130,20 @@ details p {
     padding-bottom: 8px;
   }
   .node-list {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: block;
     max-height: 170px;
     min-height: 70px;
     padding: 0 12px 8px;
     gap: 4px;
+  }
+  .country-nodes {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 4px;
+  }
+  .group-filter-menu {
+    left: 0;
+    right: auto;
   }
   .node-row {
     min-height: 53px;

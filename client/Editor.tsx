@@ -31,6 +31,7 @@ import {
   type Chain,
 } from "../shared/types";
 import { Empty, Field, Modal } from "./ui";
+import { groupNodesByCountry } from "./countries";
 
 export interface EditorProps {
   workspace: Workspace;
@@ -116,7 +117,16 @@ export function NodeLibrary({
       ),
     [workspace.nodes, source, protocol, search],
   );
-  const visible = filtered.slice(page * 80, (page + 1) * 80);
+  const orderedNodes = useMemo(
+    () => groupNodesByCountry(filtered).flatMap((group) => group.nodes),
+    [filtered],
+  );
+  const currentPage = Math.min(
+    page,
+    Math.max(0, Math.ceil(orderedNodes.length / 80) - 1),
+  );
+  const visible = orderedNodes.slice(currentPage * 80, (currentPage + 1) * 80);
+  const countryGroups = groupNodesByCountry(visible);
   return (
     <aside className="node-library">
       <div className="panel-heading">
@@ -212,21 +222,35 @@ export function NodeLibrary({
         </span>
       </div>
       <div className="node-list">
-        {visible.map((node) => (
-          <NodeRow
-            key={node.id}
-            node={node}
-            selected={selected.includes(node.id)}
-            dragIds={selected}
-            toggle={() =>
-              setSelected(
-                selected.includes(node.id)
-                  ? selected.filter((id) => id !== node.id)
-                  : [...selected, node.id],
-              )
-            }
-            edit={() => editNode(node.id)}
-          />
+        {countryGroups.map((country) => (
+          <section
+            className="node-country"
+            key={country.code}
+            aria-label={`${country.name}节点`}
+          >
+            <div className="country-heading">
+              <span>{country.name}</span>
+              <small>{country.nodes.length} 个节点</small>
+            </div>
+            <div className="country-nodes">
+              {country.nodes.map((node) => (
+                <NodeRow
+                  key={node.id}
+                  node={node}
+                  selected={selected.includes(node.id)}
+                  dragIds={selected}
+                  toggle={() =>
+                    setSelected(
+                      selected.includes(node.id)
+                        ? selected.filter((id) => id !== node.id)
+                        : [...selected, node.id],
+                    )
+                  }
+                  edit={() => editNode(node.id)}
+                />
+              ))}
+            </div>
+          </section>
         ))}
         {!visible.length && (
           <Empty
@@ -246,15 +270,18 @@ export function NodeLibrary({
       </div>
       {filtered.length > 80 && (
         <div className="pagination">
-          <button disabled={page === 0} onClick={() => setPage(page - 1)}>
+          <button
+            disabled={currentPage === 0}
+            onClick={() => setPage(currentPage - 1)}
+          >
             上一页
           </button>
           <span>
-            {page + 1} / {Math.ceil(filtered.length / 80)}
+            {currentPage + 1} / {Math.ceil(filtered.length / 80)}
           </span>
           <button
-            disabled={(page + 1) * 80 >= filtered.length}
-            onClick={() => setPage(page + 1)}
+            disabled={(currentPage + 1) * 80 >= filtered.length}
+            onClick={() => setPage(currentPage + 1)}
           >
             下一页
           </button>
@@ -489,6 +516,14 @@ function GroupCard({
 }
 
 export function Groups({ workspace, update }: EditorProps) {
+  const [groupSearch, setGroupSearch] = useState("");
+  const [groupFilterIds, setGroupFilterIds] = useState<string[] | null>(null);
+  const matchingGroups = workspace.groups.filter(
+    (group) =>
+      (groupFilterIds === null || groupFilterIds.includes(group.id)) &&
+      group.name.toLowerCase().includes(groupSearch.trim().toLowerCase()),
+  );
+  const hasFilter = groupFilterIds !== null || !!groupSearch.trim();
   const [editing, setEditing] = useState<string>();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
@@ -538,7 +573,12 @@ export function Groups({ workspace, update }: EditorProps) {
           excludeRegex: excludeRegex || undefined,
         }
       : undefined;
-    if (!editing) next.groups.push(group);
+    if (!editing) {
+      next.groups.push(group);
+      setGroupSearch("");
+      if (groupFilterIds !== null)
+        setGroupFilterIds([...groupFilterIds, group.id]);
+    }
     update(next);
     setCreating(false);
   }
@@ -554,8 +594,83 @@ export function Groups({ workspace, update }: EditorProps) {
           新建代理组
         </button>
       </div>
+      <div className="group-filters">
+        <div className="search">
+          <Search size={16} />
+          <input
+            aria-label="搜索代理组"
+            placeholder="搜索代理组名称"
+            value={groupSearch}
+            onChange={(event) => setGroupSearch(event.target.value)}
+          />
+        </div>
+        <details className="group-filter-picker">
+          <summary>
+            <SlidersHorizontal size={16} />
+            选择代理组
+            {groupFilterIds !== null && (
+              <span>
+                {
+                  workspace.groups.filter((group) =>
+                    groupFilterIds.includes(group.id),
+                  ).length
+                }
+              </span>
+            )}
+          </summary>
+          <div className="group-filter-menu">
+            <div className="group-filter-actions">
+              <button onClick={() => setGroupFilterIds(null)}>全选</button>
+              <button onClick={() => setGroupFilterIds([])}>清空</button>
+            </div>
+            <div className="group-filter-options">
+              {workspace.groups.map((group) => (
+                <label key={group.id}>
+                  <input
+                    type="checkbox"
+                    checked={
+                      groupFilterIds === null ||
+                      groupFilterIds.includes(group.id)
+                    }
+                    onChange={(event) => {
+                      const selected =
+                        groupFilterIds ??
+                        workspace.groups.map((group) => group.id);
+                      setGroupFilterIds(
+                        event.target.checked
+                          ? [...selected, group.id]
+                          : selected.filter((id) => id !== group.id),
+                      );
+                    }}
+                  />
+                  {group.name}
+                </label>
+              ))}
+            </div>
+          </div>
+        </details>
+        <span className="group-filter-count" role="status">
+          显示 {matchingGroups.length} / {workspace.groups.length} 个组
+        </span>
+        {hasFilter && (
+          <button
+            className="text-button"
+            onClick={() => {
+              setGroupSearch("");
+              setGroupFilterIds(null);
+            }}
+          >
+            重置筛选
+          </button>
+        )}
+      </div>
+      {hasFilter && !matchingGroups.length && (
+        <Empty icon={<Search size={24} />} title="没有匹配的代理组">
+          <p>调整搜索条件或重新选择代理组。</p>
+        </Empty>
+      )}
       <div className="groups-grid">
-        {workspace.groups.map((group) => (
+        {matchingGroups.map((group) => (
           <GroupCard
             key={group.id}
             workspace={workspace}
